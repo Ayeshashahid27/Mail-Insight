@@ -1,0 +1,21 @@
+import { useState } from 'react'
+import { CalendarRange, ChartNoAxesCombined, TrendingUp, Flag, Reply } from 'lucide-react'
+import { useInsights } from '../hooks/useInsights'
+import { Surface, SectionTitle, Empty } from '../components/ui/Surface'
+import { DataWarnings, StatusPanel } from '../components/ui/Content'
+import { TrendChart, Donut } from '../components/charts/Charts'
+import { filterSnapshots, comparison } from '../utils/analytics'
+import { countLabel, dateLabel } from '../utils/format'
+import { CATEGORIES } from '../config/constants'
+
+export function Analytics() {
+  const { snapshots, latest, data, isPending, error, refresh } = useInsights()
+  const [filter, setFilter] = useState('all')
+  const [start, setStart] = useState('')
+  const [end, setEnd] = useState('')
+  if (isPending || error || !latest) return <StatusPanel loading={isPending} error={error} empty={!latest} refresh={refresh} />
+  const visible = filterSnapshots(snapshots, filter, start, end)
+  const current = visible.at(-1), previous = visible.at(-2)
+  const deltas = [{ key: 'total', label: 'Total scanned', icon: TrendingUp }, { key: 'high_priority', label: 'High priority', icon: Flag }, { key: 'needs_reply', label: 'Needs reply', icon: Reply }]
+  return <div className="page-content"><DataWarnings snapshot={latest} rejectedCount={data?.rejectedCount} /><div className="editorial-intro"><span className="eyebrow">HISTORICAL VIEW</span><h2>See how your inbox <em>moves.</em></h2><p>Each point is a saved rolling scan. Trends compare snapshot values; overlapping 24-hour windows are never summed as unique emails.</p></div><Surface className="filter-panel"><div className="filter-heading"><CalendarRange size={19} /><div><strong>Timeframe</strong><span>{visible.length} snapshot{visible.length === 1 ? '' : 's'} available</span></div></div><div className="segmented" role="group" aria-label="Timeframe">{[['all', 'All available'], ['latest', 'Latest'], ['7', 'Last 7 days'], ['30', 'Last 30 days'], ['custom', 'Custom']].map(([value, label]) => <button key={value} className={filter === value ? 'active' : ''} onClick={() => setFilter(value)} aria-pressed={filter === value}>{label}</button>)}</div>{filter === 'custom' && <div className="date-range"><label>From<input type="date" value={start} onChange={event => setStart(event.target.value)} /></label><label>To<input type="date" value={end} min={start || undefined} onChange={event => setEnd(event.target.value)} /></label></div>}</Surface>{visible.length ? <><div className="delta-grid">{deltas.map(({ key, label, icon: Icon }) => { const delta = comparison(current, previous, key); return <Surface key={key} className="delta-card"><span className="heading-icon"><Icon size={19} /></span><span>{label}</span><strong>{countLabel(current[key])}</strong><small>{delta === null ? 'No prior value to compare' : `${delta > 0 ? '+' : ''}${countLabel(delta)} vs previous snapshot`}</small></Surface> })}</div><SectionTitle eyebrow="SNAPSHOT TRENDS" title="Patterns over time" /><div className="analytics-grid"><Surface className="wide-chart"><div className="card-heading plain"><div><span className="eyebrow">VOLUME</span><h2>Emails per snapshot</h2></div></div><TrendChart snapshots={visible} /></Surface><Surface><div className="card-heading plain"><div><span className="eyebrow">ATTENTION</span><h2>Priority & replies</h2></div></div><TrendChart snapshots={visible} fields={['high_priority', 'needs_reply']} /></Surface></div><div className="analytics-grid"><Surface className="wide-chart"><div className="card-heading plain"><div><span className="eyebrow">CATEGORY HISTORY</span><h2>Category trends</h2></div></div><TrendChart snapshots={visible} fields={CATEGORIES.map(item => item.key)} /></Surface><Surface><div className="card-heading plain"><div><span className="eyebrow">DAILY COMPARISON</span><h2>Categories by snapshot</h2></div></div><TrendChart snapshots={visible} fields={CATEGORIES.map(item => item.key)} type="bar" /></Surface></div><Surface><div className="card-heading plain"><div><span className="eyebrow">LATEST IN RANGE</span><h2>Composition · {dateLabel(current.date)}</h2></div></div><Donut snapshot={current} /></Surface></> : <Surface><Empty icon={ChartNoAxesCombined} title="No snapshots in this range">Choose another timeframe or wait for more reports to be saved.</Empty></Surface>}</div>
+}

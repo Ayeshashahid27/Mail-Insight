@@ -1,0 +1,19 @@
+import { useState } from 'react'
+import { CalendarDays, ChevronLeft, ChevronRight, Clock3, ShieldCheck } from 'lucide-react'
+import { useInsights } from '../hooks/useInsights'
+import { Surface } from '../components/ui/Surface'
+import { Briefing, ItemList, ReportActions, DataWarnings, StatusPanel } from '../components/ui/Content'
+import { CategoryBars } from '../components/charts/Charts'
+import { countLabel, dateLabel, timeLabel } from '../utils/format'
+import { usePreferences } from '../hooks/usePreferences'
+
+export function Reports() {
+  const { snapshots, latest, data, isPending, error, refresh } = useInsights()
+  const [id, setId] = useState(null)
+  const { preferences } = usePreferences()
+  if (isPending || error || !latest) return <StatusPanel loading={isPending} error={error} empty={!latest} refresh={refresh} />
+  const ordered = [...snapshots].reverse()
+  const selected = ordered.find(item => item.id === id) || ordered[0]
+  const index = ordered.findIndex(item => item.id === selected.id)
+  return <div className="page-content"><DataWarnings snapshot={selected} rejectedCount={data?.rejectedCount} /><div className="editorial-intro reports-intro"><span className="eyebrow">REPORT LIBRARY</span><h2>Every day, a little <em>clearer.</em></h2><p>Browse the briefings saved by your workflow. Reports show the data exactly as received.</p></div><div className="report-layout"><Surface className="report-picker"><div className="card-heading plain"><div><span className="eyebrow">SAVED SNAPSHOTS</span><h2>Report history</h2></div><span className="pill">{ordered.length}</span></div><div className="report-list">{ordered.map((item, i) => <button key={item.id} className={`report-option ${selected.id === item.id ? 'active' : ''}`} onClick={() => setId(item.id)}><span className="report-calendar"><CalendarDays size={19} /></span><span><strong>{dateLabel(item.date)}</strong><small>{item.window || 'Scan window not provided'}</small></span>{i === 0 && <i>Latest</i>}</button>)}</div></Surface><div className="report-body"><Surface className="report-header"><div><span className="eyebrow">SELECTED REPORT</span><h2>{dateLabel(selected.date, 'EEEE, MMMM d, yyyy')}</h2><p>Snapshot {ordered.length - index} of {ordered.length}</p></div><div className="report-nav"><button aria-label="Newer report" disabled={index === 0} onClick={() => setId(ordered[index - 1].id)}><ChevronLeft size={18} /></button><button aria-label="Older report" disabled={index === ordered.length - 1} onClick={() => setId(ordered[index + 1].id)}><ChevronRight size={18} /></button></div><ReportActions snapshot={selected} /></Surface><div className="report-facts"><Surface><Clock3 size={20} /><span>Scan window</span><strong>{selected.window || 'Not provided'}</strong></Surface><Surface><ShieldCheck size={20} /><span>Completeness</span><strong>{selected.possiblyTruncated === true ? 'Possibly truncated' : selected.possiblyTruncated === false ? 'No truncation reported' : 'Not provided'}</strong></Surface><Surface><CalendarDays size={20} /><span>Last updated</span><strong>{timeLabel(selected.updatedAt, preferences.localTime)}</strong></Surface></div><Briefing snapshot={selected} compact /><Surface><div className="card-heading plain"><div><span className="eyebrow">COUNT BREAKDOWN</span><h2>Snapshot numbers</h2></div></div><div className="report-totals">{[['Total emails', selected.total], ['Unread', selected.unread], ['Spam', selected.spam], ['High priority', selected.high_priority], ['Needs reply', selected.needs_reply]].map(([label, value]) => <div key={label}><span>{label}</span><strong>{countLabel(value)}</strong></div>)}</div><CategoryBars snapshot={selected} /></Surface><div className="attention-grid report-items"><ItemList title="Action items" items={selected.actionItems} /><ItemList title="Urgent emails" items={selected.urgentEmails} type="urgent" /></div></div></div></div>
+}
