@@ -41,7 +41,15 @@ export function DataWarnings({ snapshot, rejectedCount = 0 }) {
 }
 
 export function StatusPanel({ loading, error, empty, refresh }) {
+  const [accessKey, setAccessKey] = useState('')
+  const saveAccessKey = event => {
+    event.preventDefault()
+    if (!accessKey.trim()) return
+    sessionStorage.setItem('mailsense-access-key', accessKey.trim())
+    refresh()
+  }
   if (loading) return <div className="loading-grid" aria-label="Loading insights">{Array.from({ length: 6 }, (_, i) => <div className="skeleton" key={i} />)}</div>
+  if (error?.code === 'auth') return <Surface className="status-panel"><span className="status-illustration">↗</span><span className="eyebrow">ACCESS REQUIRED</span><h2>Enter your deployment access key.</h2><p>Use the same value as <code>MAILSENSE_ACCESS_TOKEN</code> in Vercel. Your key stays in this browser tab.</p><form className="auth-form" onSubmit={saveAccessKey}><label htmlFor="insights-access-key">Access key</label><input id="insights-access-key" type="password" autoComplete="off" value={accessKey} onChange={event => setAccessKey(event.target.value)} required /><button className="button primary" type="submit">Unlock insights</button></form></Surface>
   if (error) return <Surface className="status-panel"><span className="status-illustration">!</span><span className="eyebrow">CONNECTION INTERRUPTED</span><h2>We couldn’t load your insights.</h2><p>{error.message}</p><button className="button primary" onClick={refresh}>Try again</button></Surface>
   if (empty) return <Surface className="status-panel"><FileText size={34} /><span className="eyebrow">NO SAVED REPORTS</span><h2>Insights will appear here.</h2><p>The backend returned no valid dated snapshots. Check the Google Sheet or refresh after the next scan.</p><button className="button primary" onClick={refresh}>Refresh data</button></Surface>
   return null
